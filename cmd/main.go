@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"go-web-api/features/trip"
-	"go-web-api/features/trip/domain"
+	"go-web-api/features/trip/domain/models"
+	"go-web-api/features/trip/infra/storages"
 
 	"github.com/gorilla/mux"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var (
@@ -29,21 +31,23 @@ func main() {
 
 	dsn := "host=127.0.0.1 user=postgres password=postgres dbname=go-web-app port=5432 sslmode=disable"
 
-	conn, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	newLogger := logger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), logger.Config{SlowThreshold: time.Second, LogLevel: logger.Info, IgnoreRecordNotFoundError: true, Colorful: true})
+
+	conn, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: newLogger,
+	})
 
 	if err != nil {
 		panic("Failed to connect database")
 	}
 
-	conn.AutoMigrate(domain.NewTrip())
+	conn.AutoMigrate(models.NewTrip(), models.NewTripPoint())
 
 	r := mux.NewRouter()
 
-	tsrv := &trip.TripService{
-		Db: conn,
-	}
+	t := trip.NewTripController(storages.NewPostgresStorage(conn))
 
-	tsrv.MuxRegister(r)
+	t.MuxRegister(r)
 
 	srv := http.Server{
 		ReadTimeout:  time.Second * timeout,
@@ -74,9 +78,4 @@ func main() {
 
 	os.Exit(0)
 
-}
-
-func PingHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(200)
-	w.Write([]byte("pong"))
 }
