@@ -7,26 +7,31 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+
 	"time"
 
 	"go-web-api/features/trip"
 	"go-web-api/features/trip/domain/models"
 	"go-web-api/features/trip/infra/storages"
+	"go-web-api/internal/providers"
 
 	"github.com/gorilla/mux"
+	"go.opentelemetry.io/otel"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
 var (
-	address string
-	timeout time.Duration
+	address   string
+	jaegerUrl string
+	timeout   time.Duration
 )
 
 func main() {
 
 	flag.StringVar(&address, "address", "127.0.0.1:4400", "Address on which server will listen")
+	flag.StringVar(&jaegerUrl, "jaeger", "http://localhost:14268/api/traces", "Jaeger url")
 	flag.DurationVar(&timeout, "timeout", 30, "Seconds after which request will be cancelled")
 
 	dsn := "host=127.0.0.1 user=postgres password=postgres dbname=go-web-app port=5432 sslmode=disable"
@@ -37,6 +42,13 @@ func main() {
 		Logger: newLogger,
 	})
 
+	tp, err := providers.CreateJaegerProvider(jaegerUrl)
+
+	if err != nil {
+		panic("Failed to connect jaeger")
+	}
+	otel.SetTracerProvider(tp)
+
 	if err != nil {
 		panic("Failed to connect database")
 	}
@@ -45,7 +57,7 @@ func main() {
 
 	r := mux.NewRouter()
 
-	t := trip.NewTripController(storages.NewPostgresStorage(conn))
+	t := trip.NewTripController(storages.NewPostgresStorage(conn), *log.Default())
 
 	t.MuxRegister(r)
 

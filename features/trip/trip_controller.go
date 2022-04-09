@@ -9,8 +9,11 @@ import (
 
 	"go-web-api/features/trip/app/use_cases"
 	"go-web-api/features/trip/domain/models"
+	"go-web-api/internal/globals"
+	"go-web-api/internal/protocols"
 
 	"github.com/gorilla/mux"
+	"go.opentelemetry.io/otel"
 )
 
 type Storage interface {
@@ -22,10 +25,11 @@ type Storage interface {
 
 type tripController struct {
 	storage Storage
+	log     log.Logger
 }
 
-func NewTripController(s Storage) *tripController {
-	return &tripController{storage: s}
+func NewTripController(s Storage, log log.Logger) *tripController {
+	return &tripController{storage: s, log: log}
 }
 
 func (t *tripController) MuxRegister(r *mux.Router) {
@@ -37,92 +41,92 @@ func (t *tripController) MuxRegister(r *mux.Router) {
 
 func (t *tripController) addHandler(w http.ResponseWriter, r *http.Request) {
 
+	spanCtx, span := otel.Tracer(globals.TracerAppName).Start(r.Context(), "trip-add")
+	defer span.End()
+
 	var trip models.Trip
 
 	if err := json.NewDecoder(r.Body).Decode(&trip); err != nil {
-		log.Println(err)
-		w.WriteHeader(500)
+		t.log.Println(err)
+		protocols.BadRequest(w)
 		return
 	}
 
-	log.Println(trip)
-
-	if err := use_cases.NewAddUseCase(t.storage).Execute(trip, r.Context()); err != nil {
-		log.Println(err)
-		w.WriteHeader(500)
+	if err := use_cases.NewAddUseCase(t.storage).Execute(trip, spanCtx); err != nil {
+		t.log.Println(err)
+		protocols.InternalServerError(w)
 		return
 	}
 
-	w.WriteHeader(200)
+	protocols.NoContent(w)
 }
 
 func (t *tripController) updateHandler(w http.ResponseWriter, r *http.Request) {
 
+	spanCtx, span := otel.Tracer(globals.TracerAppName).Start(r.Context(), "trip-update")
+	defer span.End()
+
 	var trip models.Trip
 
 	if err := json.NewDecoder(r.Body).Decode(&trip); err != nil {
-		log.Println(err)
-		w.WriteHeader(500)
+		t.log.Println(err)
+		protocols.BadRequest(w)
 		return
 	}
 
-	if err := use_cases.NewUpdatetUseCase(t.storage).Execute(trip, r.Context()); err != nil {
-		log.Println(err)
-		w.WriteHeader(500)
+	if err := use_cases.NewUpdatetUseCase(t.storage).Execute(trip, spanCtx); err != nil {
+		t.log.Println(err)
+		protocols.InternalServerError(w)
 		return
 	}
 
-	w.WriteHeader(200)
+	protocols.NoContent(w)
 }
 
 func (t *tripController) deleteHandler(w http.ResponseWriter, r *http.Request) {
+	spanCtx, span := otel.Tracer(globals.TracerAppName).Start(r.Context(), "trip-delete")
+	defer span.End()
 
 	vars := mux.Vars(r)
 
 	id, err := strconv.Atoi(vars["id"])
 
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(500)
+		t.log.Println(err)
+		protocols.BadRequest(w)
 		return
 	}
 
-	if err := use_cases.NewDeleteUseCase(t.storage).Execute(id, r.Context()); err != nil {
-		log.Println(err)
-		w.WriteHeader(500)
+	if err := use_cases.NewDeleteUseCase(t.storage).Execute(id, spanCtx); err != nil {
+		t.log.Println(err)
+		protocols.InternalServerError(w)
 		return
 	}
 
-	w.WriteHeader(200)
+	protocols.NoContent(w)
 }
 
 func (t *tripController) getHandler(w http.ResponseWriter, r *http.Request) {
+	spanCtx, span := otel.Tracer(globals.TracerAppName).Start(r.Context(), "trip-get")
+	defer span.End()
 
 	vars := mux.Vars(r)
 
 	id, err := strconv.Atoi(vars["id"])
 
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(500)
+		t.log.Println(err)
+		protocols.BadRequest(w)
 		return
 	}
 
-	resp, err := use_cases.NewGetUseCase(t.storage).Execute(id, r.Context())
+	resp, err := use_cases.NewGetUseCase(t.storage).Execute(id, spanCtx)
 
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(500)
+		t.log.Println(err)
+		protocols.InternalServerError(w)
 		return
 	}
 
-	json, err := json.Marshal(resp)
-
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(500)
-		return
-	}
-
-	w.Write(json)
+	protocols.Ok(w, &resp)
 }

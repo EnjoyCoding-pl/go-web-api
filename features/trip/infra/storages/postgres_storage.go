@@ -3,7 +3,9 @@ package storages
 import (
 	"context"
 	"go-web-api/features/trip/domain/models"
+	"go-web-api/internal/globals"
 
+	"go.opentelemetry.io/otel"
 	"gorm.io/gorm"
 )
 
@@ -16,15 +18,22 @@ func NewPostgresStorage(db *gorm.DB) *postgresStorage {
 }
 
 func (s *postgresStorage) Add(t models.Trip, ctx context.Context) error {
-	tx := s.db.Create(&t)
+	_, span := otel.Tracer(globals.TracerAppName).Start(ctx, "postgres-add-query")
+	defer span.End()
+
+	tx := s.db.WithContext(ctx).Create(&t)
 
 	return tx.Error
 }
 
 func (s *postgresStorage) Update(t models.Trip, ctx context.Context) error {
+	_, span := otel.Tracer(globals.TracerAppName).Start(ctx, "postgres-update-query")
+	defer span.End()
+
+	tx := s.db.WithContext(ctx).Session(&gorm.Session{FullSaveAssociations: true})
 
 	var points []models.TripPoint
-	s.db.Where("trip_id = ?", t.ID).Find(&points)
+	tx.Where("trip_id = ?", t.ID).Find(&points)
 
 	deleted := make([]uint, 0)
 
@@ -41,27 +50,34 @@ func (s *postgresStorage) Update(t models.Trip, ctx context.Context) error {
 		}
 	}
 
-	deleteTx := s.db.Delete(models.NewTripPoint(), deleted)
+	deleteTx := tx.Delete(models.NewTripPoint(), deleted)
 
 	if deleteTx.Error != nil {
 		return deleteTx.Error
 	}
 
-	saveTx := s.db.Session(&gorm.Session{FullSaveAssociations: true}).Save(&t)
+	saveTx := tx.Save(&t)
 
 	return saveTx.Error
 }
 
 func (s *postgresStorage) Delete(id int, ctx context.Context) error {
-	tx := s.db.Delete(models.NewTrip(), id)
+	_, span := otel.Tracer(globals.TracerAppName).Start(ctx, "postgres-delete-query")
+	defer span.End()
+
+	tx := s.db.WithContext(ctx).Delete(models.NewTrip(), id)
 
 	return tx.Error
 }
 
 func (s *postgresStorage) Get(id int, ctx context.Context) (models.Trip, error) {
+
+	_, span := otel.Tracer(globals.TracerAppName).Start(ctx, "postgres-get-by-id-query")
+	defer span.End()
+
 	t := models.NewTrip()
 
-	tx := s.db.Preload("Points").First(t, id)
+	tx := s.db.WithContext(ctx).Preload("Points").First(t, id)
 
 	return *t, tx.Error
 }
