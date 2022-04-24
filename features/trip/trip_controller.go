@@ -21,6 +21,7 @@ type Storage interface {
 	Update(t models.Trip, ctx context.Context) error
 	Delete(id int, ctx context.Context) error
 	Get(id int, ctx context.Context) (models.Trip, error)
+	GetAll(sp *models.TripSearchParam, ctx context.Context) (*[]models.Trip, error)
 }
 
 type tripController struct {
@@ -37,6 +38,7 @@ func (t *tripController) MuxRegister(r *mux.Router) {
 	r.HandleFunc("/trips", t.updateHandler).Methods("PUT")
 	r.HandleFunc("/trips/{id}", t.deleteHandler).Methods("DELETE")
 	r.HandleFunc("/trips/{id}", t.getHandler).Methods("GET")
+	r.HandleFunc("/trips", t.getAllHandler).Methods("GET")
 }
 
 func (t *tripController) addHandler(w http.ResponseWriter, r *http.Request) {
@@ -129,4 +131,29 @@ func (t *tripController) getHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	protocols.Ok(w, &resp)
+}
+
+func (t *tripController) getAllHandler(w http.ResponseWriter, r *http.Request) {
+	spanCtx, span := otel.Tracer(globals.TracerAppName).Start(r.Context(), "trip-get-all")
+	defer span.End()
+
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil {
+		protocols.BadRequest(w)
+	}
+	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
+	if err != nil {
+		protocols.BadRequest(w)
+	}
+
+	sp := models.NewTripSearchParam(page, pageSize)
+
+	resp, err := use_cases.NewGetAllUseCase(t.storage).Execute(sp, spanCtx)
+
+	if err != nil {
+		t.log.Println(err)
+		protocols.InternalServerError(w)
+		return
+	}
+	protocols.Ok(w, resp)
 }

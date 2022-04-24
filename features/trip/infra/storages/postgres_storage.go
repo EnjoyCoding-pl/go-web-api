@@ -81,3 +81,22 @@ func (s *postgresStorage) Get(id int, ctx context.Context) (models.Trip, error) 
 
 	return *t, tx.Error
 }
+
+func (s *postgresStorage) GetAll(sp *models.TripSearchParam, ctx context.Context) (*[]models.Trip, error) {
+
+	_, span := otel.Tracer(globals.TracerAppName).Start(ctx, "postgrs-get-all-query")
+	defer span.End()
+
+	trips := make([]models.Trip, 1)
+
+	o := (sp.Page - 1) * sp.PageSize
+	l := sp.PageSize
+
+	tx := s.db.WithContext(ctx).Preload("Points").Offset(o).Limit(l).Find(&trips)
+
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+
+	return &trips, nil
+}
