@@ -27,6 +27,7 @@ func (s *postgresStorage) Add(t models.Trip, ctx context.Context) error {
 }
 
 func (s *postgresStorage) Update(t models.Trip, ctx context.Context) error {
+
 	_, span := otel.Tracer(globals.TracerAppName).Start(ctx, "postgres-update-query")
 	defer span.End()
 
@@ -50,10 +51,12 @@ func (s *postgresStorage) Update(t models.Trip, ctx context.Context) error {
 		}
 	}
 
-	deleteTx := tx.Delete(models.NewTripPoint(), deleted)
+	if len(deleted) > 0 {
+		deleteTx := tx.Delete(models.NewTripPoint(), deleted)
 
-	if deleteTx.Error != nil {
-		return deleteTx.Error
+		if deleteTx.Error != nil {
+			return deleteTx.Error
+		}
 	}
 
 	saveTx := tx.Save(&t)

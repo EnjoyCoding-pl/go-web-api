@@ -2,6 +2,7 @@ package use_cases
 
 import (
 	"context"
+	dto "go-web-api/features/trip/app/models"
 	"go-web-api/features/trip/domain/models"
 )
 
@@ -17,6 +18,12 @@ func NewGetUseCase(s GetStorage) *getUseCase {
 	return &getUseCase{storage: s}
 }
 
-func (u *getUseCase) Execute(id int, ctx context.Context) (models.Trip, error) {
-	return u.storage.Get(id, ctx)
+func (u *getUseCase) Execute(id int, ctx context.Context) (*dto.TripDto, error) {
+	t, err := u.storage.Get(id, ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return dto.NewTripDto(t), nil
 }

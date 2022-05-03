@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	dto "go-web-api/features/trip/app/models"
 	"go-web-api/features/trip/app/use_cases"
 	"go-web-api/features/trip/domain/models"
 	"go-web-api/internal/globals"
@@ -46,7 +47,7 @@ func (t *tripController) addHandler(w http.ResponseWriter, r *http.Request) {
 	spanCtx, span := otel.Tracer(globals.TracerAppName).Start(r.Context(), "trip-add")
 	defer span.End()
 
-	var trip models.Trip
+	var trip dto.TripDto
 
 	if err := json.NewDecoder(r.Body).Decode(&trip); err != nil {
 		t.log.Println(err)
@@ -68,7 +69,7 @@ func (t *tripController) updateHandler(w http.ResponseWriter, r *http.Request) {
 	spanCtx, span := otel.Tracer(globals.TracerAppName).Start(r.Context(), "trip-update")
 	defer span.End()
 
-	var trip models.Trip
+	var trip dto.TripDto
 
 	if err := json.NewDecoder(r.Body).Decode(&trip); err != nil {
 		t.log.Println(err)
