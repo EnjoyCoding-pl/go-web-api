@@ -13,6 +13,10 @@ import (
 	"go-web-api/features/trip"
 	"go-web-api/features/trip/domain/models"
 	"go-web-api/features/trip/infra/storages"
+	"go-web-api/features/user"
+	user_models "go-web-api/features/user/domain/models"
+	user_storage "go-web-api/features/user/infra/storages"
+	"go-web-api/internal/middlewares"
 	"go-web-api/internal/providers"
 
 	"github.com/gorilla/mux"
@@ -26,12 +30,16 @@ var (
 	address   string
 	jaegerUrl string
 	timeout   time.Duration
+	jwtIssuer string
+	jwtSecret string
 )
 
 func main() {
 
 	flag.StringVar(&address, "address", "127.0.0.1:4400", "Address on which server will listen")
 	flag.StringVar(&jaegerUrl, "jaeger", "http://localhost:14268/api/traces", "Jaeger url")
+	flag.StringVar(&jwtIssuer, "jwt-issuer", "http://127.0.0.1:4400", "JWT issuer value")
+	flag.StringVar(&jwtSecret, "jwt-secret", "default", "Secret for signing JWT token")
 	flag.DurationVar(&timeout, "timeout", 30, "Seconds after which request will be cancelled")
 
 	dsn := "host=127.0.0.1 user=postgres password=postgres dbname=go-web-app port=5432 sslmode=disable"
@@ -42,6 +50,10 @@ func main() {
 		Logger: newLogger,
 	})
 
+	if err != nil {
+		panic("Failed to connect database")
+	}
+
 	tp, err := providers.CreateJaegerProvider(jaegerUrl)
 
 	if err != nil {
@@ -49,17 +61,26 @@ func main() {
 	}
 	otel.SetTracerProvider(tp)
 
-	if err != nil {
-		panic("Failed to connect database")
-	}
-
-	conn.AutoMigrate(models.NewTrip(), models.NewTripPoint())
+	conn.AutoMigrate(&models.Trip{}, &models.TripPoint{}, &user_models.User{})
 
 	r := mux.NewRouter()
 
+	jwtProvider := providers.NewJwtProvider(jwtIssuer, jwtSecret)
+
+	publicPaths := map[string]any{
+		"/login":    true,
+		"/register": true,
+	}
+
+	r.Use(middlewares.AuthMiddleware(jwtProvider, publicPaths))
+
 	t := trip.NewTripController(storages.NewPostgresStorage(conn), *log.Default())
 
+	u := user.NewUserController(user_storage.NewUserPostgresStorage(conn), jwtProvider)
+
 	t.MuxRegister(r)
+
+	u.MuxRegister(r)
 
 	srv := http.Server{
 		ReadTimeout:  time.Second * timeout,

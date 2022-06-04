@@ -24,15 +24,20 @@ func NoContent(w http.ResponseWriter) {
 
 func BadRequest(w http.ResponseWriter) {
 	w.Header().Add("content-type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusBadRequest)
 }
 
 func NotFound(w http.ResponseWriter) {
 	w.Header().Add("content-type", "application/json")
-	w.WriteHeader(http.StatusBadRequest)
+	w.WriteHeader(http.StatusNotFound)
 }
 
 func InternalServerError(w http.ResponseWriter) {
 	w.Header().Add("content-type", "application/json")
 	w.WriteHeader(http.StatusInternalServerError)
+}
+
+func Unauthorized(w http.ResponseWriter) {
+	w.Header().Add("content-type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
 }
