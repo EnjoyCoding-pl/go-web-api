@@ -27,11 +27,12 @@ import (
 )
 
 var (
-	address   string
-	jaegerUrl string
-	timeout   time.Duration
-	jwtIssuer string
-	jwtSecret string
+	address          string
+	jaegerUrl        string
+	timeout          time.Duration
+	jwtIssuer        string
+	jwtSecret        string
+	connectionString string
 )
 
 func main() {
@@ -40,13 +41,12 @@ func main() {
 	flag.StringVar(&jaegerUrl, "jaeger", "http://localhost:14268/api/traces", "Jaeger url")
 	flag.StringVar(&jwtIssuer, "jwt-issuer", "http://127.0.0.1:4400", "JWT issuer value")
 	flag.StringVar(&jwtSecret, "jwt-secret", "default", "Secret for signing JWT token")
+	flag.StringVar(&connectionString, "connection-string", "host=127.0.0.1 user=postgres password=postgres dbname=go-web-app port=5432 sslmode=disable", "Connection string to postgres database")
 	flag.DurationVar(&timeout, "timeout", 30, "Seconds after which request will be cancelled")
-
-	dsn := "host=127.0.0.1 user=postgres password=postgres dbname=go-web-app port=5432 sslmode=disable"
 
 	newLogger := logger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), logger.Config{SlowThreshold: time.Second, LogLevel: logger.Info, IgnoreRecordNotFoundError: true, Colorful: true})
 
-	conn, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+	conn, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{
 		Logger: newLogger,
 	})
 
