@@ -11,8 +11,8 @@ type TripDto struct {
 	Id            uint
 	Country       string
 	Points        []TripPointDto
-	Begin         *time.Time
-	End           *time.Time
+	Begin         time.Time
+	End           time.Time
 	TotalDistance float64
 }
 type TripPointDto struct {

@@ -17,13 +17,13 @@ func NewTrip() *Trip {
 	return &Trip{}
 }
 
-func (t *Trip) GetBeginDate() *time.Time {
+func (t *Trip) GetBeginDate() time.Time {
 
-	var min *time.Time
+	var min time.Time
 	if t.Points != nil {
 		for _, tp := range t.Points {
-			if min == nil || tp.Begin.Before(*min) {
-				min = &tp.Begin
+			if min.IsZero() || tp.Begin.Before(min) {
+				min = tp.Begin
 			}
 		}
 	}
@@ -31,12 +31,12 @@ func (t *Trip) GetBeginDate() *time.Time {
 	return min
 }
 
-func (t *Trip) GetEndDate() *time.Time {
-	var max *time.Time
+func (t *Trip) GetEndDate() time.Time {
+	var max time.Time
 	if t.Points != nil {
 		for _, tp := range t.Points {
-			if max == nil || tp.End.After(*max) {
-				max = &tp.End
+			if max.IsZero() || tp.End.After(max) {
+				max = tp.End
 			}
 		}
 	}
