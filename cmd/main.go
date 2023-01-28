@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,7 +22,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -44,11 +44,7 @@ func main() {
 	flag.StringVar(&connectionString, "connection-string", "host=127.0.0.1 user=postgres password=postgres dbname=go-web-app port=5432 sslmode=disable", "Connection string to postgres database")
 	flag.DurationVar(&timeout, "timeout", 30, "Seconds after which request will be cancelled")
 
-	newLogger := logger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), logger.Config{SlowThreshold: time.Second, LogLevel: logger.Info, IgnoreRecordNotFoundError: true, Colorful: true})
-
-	conn, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{
-		Logger: newLogger,
-	})
+	conn, err := gorm.Open(postgres.Open(connectionString))
 
 	if err != nil {
 		panic("Failed to connect database")
@@ -74,7 +70,7 @@ func main() {
 
 	r.Use(middlewares.AuthMiddleware(jwtProvider, publicPaths))
 
-	t := trip.NewTripController(storages.NewPostgresStorage(conn), *log.Default())
+	t := trip.NewTripController(storages.NewPostgresStorage(conn))
 
 	u := user.NewUserController(user_storage.NewUserPostgresStorage(conn), jwtProvider)
 
@@ -96,7 +92,7 @@ func main() {
 		}
 	}()
 
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
 
 	signal.Notify(c, os.Interrupt)
 
@@ -107,7 +103,7 @@ func main() {
 
 	srv.Shutdown(ctx)
 
-	log.Println("Shutting down...")
+	log.Info("Shutting down...")
 
 	os.Exit(0)
 

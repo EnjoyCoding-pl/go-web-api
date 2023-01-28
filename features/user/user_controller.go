@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	dto "go-web-api/features/user/app/models"
 	"go-web-api/features/user/app/use_cases"
 	"go-web-api/features/user/domain/models"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 )
 
 type UserStorage interface {
@@ -45,18 +47,20 @@ func (c *userController) registerUser(w http.ResponseWriter, r *http.Request) {
 	var dto dto.RegisterUserDto
 
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		protocols.BadRequest(w)
+		errMsg := fmt.Errorf("user-controller: unable to decode body; %v", err)
+		protocols.BadRequest(w, errMsg, span)
 		return
 	}
 
 	err := use_cases.NewRegisterUserUseCase(c.storage).Execute(dto, spanCtx)
 
 	if err != nil {
-		protocols.InternalServerError(w)
+		errMsg := fmt.Errorf("user-controller: unable to register user; %v", err)
+		protocols.InternalServerError(w, errMsg, span)
 		return
 	}
-
-	protocols.NoContent(w)
+	span.SetStatus(codes.Ok, "")
+	protocols.NoContent(w, span)
 }
 
 func (c *userController) loginUser(w http.ResponseWriter, r *http.Request) {
@@ -66,16 +70,18 @@ func (c *userController) loginUser(w http.ResponseWriter, r *http.Request) {
 	var dto dto.LoginUserDto
 
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		protocols.BadRequest(w)
+		errMsg := fmt.Errorf("user-controller: unable to decode body; %v", err)
+		protocols.BadRequest(w, errMsg, span)
 		return
 	}
 
 	token, err := use_cases.NewLoginUserUseCase(c.storage, c.tokenProvider).Execute(&dto, spanCtx)
 
 	if err != nil {
-		protocols.BadRequest(w)
+		errMsg := fmt.Errorf("user-controller: unable to login user; %v", err)
+		protocols.BadRequest(w, errMsg, span)
 		return
 	}
-
-	protocols.Ok(w, token)
+	span.SetStatus(codes.Ok, "")
+	protocols.Ok(w, token, span)
 }

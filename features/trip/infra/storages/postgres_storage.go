@@ -2,6 +2,7 @@ package storages
 
 import (
 	"context"
+	"fmt"
 	"go-web-api/features/trip/domain/models"
 	"go-web-api/internal/globals"
 
@@ -23,7 +24,11 @@ func (s *postgresStorage) Add(t models.Trip, ctx context.Context) error {
 
 	tx := s.db.WithContext(ctx).Create(&t)
 
-	return tx.Error
+	if tx.Error != nil {
+		return fmt.Errorf("postgres-storage: unable to create trip; %v", tx.Error)
+	}
+
+	return nil
 }
 
 func (s *postgresStorage) Update(t models.Trip, ctx context.Context) error {
@@ -55,13 +60,17 @@ func (s *postgresStorage) Update(t models.Trip, ctx context.Context) error {
 		deleteTx := tx.Delete(models.NewTripPoint(), deleted)
 
 		if deleteTx.Error != nil {
-			return deleteTx.Error
+			return fmt.Errorf("postgres-storage: unable to delete trip points; %v", deleteTx.Error)
 		}
 	}
 
 	saveTx := tx.Save(&t)
 
-	return saveTx.Error
+	if tx.Error != nil {
+		return fmt.Errorf("postgres-storage: unable to save trip; %v", saveTx.Error)
+	}
+
+	return nil
 }
 
 func (s *postgresStorage) Delete(id int, ctx context.Context) error {
@@ -70,10 +79,14 @@ func (s *postgresStorage) Delete(id int, ctx context.Context) error {
 
 	tx := s.db.WithContext(ctx).Delete(models.NewTrip(), id)
 
-	return tx.Error
+	if tx.Error != nil {
+		return fmt.Errorf("postgres-storage: unable to delete trip; %v", tx.Error)
+	}
+
+	return nil
 }
 
-func (s *postgresStorage) Get(id int, ctx context.Context) (models.Trip, error) {
+func (s *postgresStorage) Get(id int, ctx context.Context) (*models.Trip, error) {
 
 	_, span := otel.Tracer(globals.TracerAppName).Start(ctx, "postgres-get-by-id-query")
 	defer span.End()
@@ -82,7 +95,12 @@ func (s *postgresStorage) Get(id int, ctx context.Context) (models.Trip, error) 
 
 	tx := s.db.WithContext(ctx).Preload("Points").First(t, id)
 
-	return *t, tx.Error
+	if tx.Error != nil {
+		return nil, fmt.Errorf("postgres-storage: unable to get trip; %v", tx.Error)
+	}
+
+	return t, nil
+
 }
 
 func (s *postgresStorage) GetAll(sp *models.TripSearchParam, ctx context.Context) (*[]models.Trip, error) {
@@ -98,7 +116,7 @@ func (s *postgresStorage) GetAll(sp *models.TripSearchParam, ctx context.Context
 	tx := s.db.WithContext(ctx).Preload("Points").Offset(o).Limit(l).Find(&trips)
 
 	if tx.Error != nil {
-		return nil, tx.Error
+		return nil, fmt.Errorf("postgres-storage: unable to get all trips; %v", tx.Error)
 	}
 
 	return &trips, nil

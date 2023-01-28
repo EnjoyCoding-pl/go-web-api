@@ -2,7 +2,7 @@ package storages
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"go-web-api/features/user/domain/models"
 	"go-web-api/internal/globals"
 
@@ -23,7 +23,11 @@ func (s *userPostgresStorage) Add(u *models.User, ctx context.Context) error {
 	defer span.End()
 
 	tx := s.db.WithContext(spanCtx).Create(u)
-	return tx.Error
+
+	if tx.Error != nil {
+		return fmt.Errorf("postgres-storage: unable to create user; %v", tx.Error)
+	}
+	return nil
 }
 
 func (s *userPostgresStorage) GetByLogin(login string, ctx context.Context) (*models.User, error) {
@@ -35,11 +39,7 @@ func (s *userPostgresStorage) GetByLogin(login string, ctx context.Context) (*mo
 	tx := s.db.WithContext(spanCtx).Where("login = ?", login).First(&user)
 
 	if tx.Error != nil {
-		return nil, tx.Error
-	}
-
-	if tx.RowsAffected <= 0 {
-		return nil, errors.New("missing user")
+		return nil, fmt.Errorf("postgres-storage: unable to get user; %v", tx.Error)
 	}
 
 	return &user, nil

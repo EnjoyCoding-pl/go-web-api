@@ -7,7 +7,7 @@ import (
 )
 
 type GetStorage interface {
-	Get(id int, ctx context.Context) (models.Trip, error)
+	Get(id int, ctx context.Context) (*models.Trip, error)
 }
 
 type getUseCase struct {
@@ -25,5 +25,5 @@ func (u *getUseCase) Execute(id int, ctx context.Context) (*dto.TripDto, error) 
 		return nil, err
 	}
 
-	return dto.NewTripDto(t), nil
+	return dto.NewTripDto(*t), nil
 }
